@@ -1,101 +1,282 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import React, { useState } from 'react';
+import Hero from './components/Hero';
+import Button from './components/UI/Button';
+import Modal from './components/UI/Modal';
+import useExpenseFlowStore from './expenseStore';
+import html2canvas from "html2canvas";
+
+const Page: React.FC = () => {
+
+  const {
+    name,
+    state,
+    totalSpent,
+    participants,
+    setName,
+    addParticipant,
+    removeParticipant,
+    updateParticipantSpent,
+    calculateDebts,
+    flowReset,
+    finishFlow,
+    transactions,
+    calculateTransactions,
+  } = useExpenseFlowStore();
+
+  const [isModalNameOpen, setIsModalNameOpen] = useState(false);
+  const [isModalPeopleOpen, setIsModalPeopleOpen] = useState(false);
+  const [isModalGastosOpen, setIsModalGastosOpen] = useState(false);
+  const [newParticipant, setNewParticipant] = useState('');
+
+  const handleSetName = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+  };
+
+  const handleAddParticipant = () => {
+    if (newParticipant.trim() !== '') {
+      addParticipant({ name: newParticipant });
+      setNewParticipant('');
+    }
+  };
+
+  const handleRemoveParticipant = (index: number) => {
+    removeParticipant(index);
+  };
+
+  const handleNextToPeople = () => {
+    setIsModalNameOpen(false);
+    setIsModalPeopleOpen(true);
+  };
+
+  const handleNextToGastos = () => {
+    setIsModalPeopleOpen(false);
+    setIsModalGastosOpen(true);
+  };
+
+  const handleBackModal = () => { 
+    setIsModalNameOpen(false);
+  }
+
+  const handleBackModalPeople = () => { 
+    setIsModalNameOpen(true);
+    setIsModalPeopleOpen(false);
+  }
+
+  const handleBackModalGastos = () => { 
+    setIsModalPeopleOpen(true);
+    setIsModalGastosOpen(false);
+  }
+
+  const handleChangeSpent = (index: number, value: string) => {
+    const spentValue = parseFloat(value) || 0;
+    updateParticipantSpent(index, spentValue);
+  };
+
+  const flowFinished = () => {
+    setIsModalGastosOpen(false);
+    finishFlow();
+    calculateDebts();
+  };
+
+  const isDisabledButton = name.length === 0;
+
+  const handleDownload = (tableId : string) => {
+    const tableElement = document.getElementById(tableId);
+    
+    if (tableElement) {
+      html2canvas(tableElement).then((canvas) => {
+        const link = document.createElement("a");
+        link.href = canvas.toDataURL("image/png");
+        link.download = `${tableId}-${name}.png`;
+        link.click();
+      });
+    } else {
+      console.error("Tabla no encontrada");
+    }
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="flex flex-col items-center justify-center gap-5">
+      <Hero />
+      {totalSpent > 0 && state === 'success' && (
+        <div className="p-6 bg-gray-800 rounded-lg shadow-md w-full">
+  {/* Encabezado con datos generales */}
+  <div className="mb-6">
+    <h2 className="text-2xl font-bold text-gray-300 mb-2">Flujo de gasto: {name}</h2>
+    <div className="text-gray-400">
+      <p className="mb-1"><span className="font-semibold">Total gastos:</span> ${totalSpent}</p>
+      <p className="mb-1"><span className="font-semibold">Participantes:</span> {participants.length}</p>
+      <p className="mb-1"><span className="font-semibold">$/persona:</span> ${(totalSpent / participants.length).toFixed(2)}</p>
+    </div>
+  </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  {/* Contenedor para las dos tablas al lado */}
+  <div className="flex gap-6">
+
+    {/* Tabla de Gastos */}
+    <div className="w-1/2 overflow-x-auto">
+      <table className="w-full table-auto border-collapse border border-gray-400" id="Gastos">
+        <thead>
+          <tr className="bg-gray-400">
+            <th className="px-4 py-2 border border-gray-300 text-left text-sm font-medium text-gray-800">Nombre</th>
+            <th className="px-4 py-2 border border-gray-300 text-right text-sm font-medium text-gray-800">Gasto</th>
+            <th className="px-4 py-2 border border-gray-300 text-right text-sm font-medium text-gray-800">Deuda</th>
+            <th className="px-4 py-2 border border-gray-300 text-right text-sm font-medium text-gray-800">Recibe</th>
+          </tr>
+        </thead>
+        <tbody>
+          {participants.map((participant, index) => (
+            <tr
+              key={index}
+              className={`${index % 2 === 0 ? 'bg-gray-500' : 'bg-gray-400'} hover:bg-gray-300`}
+            >
+              <td className="px-4 py-2 border border-gray-300 text-gray-800 text-sm">{participant.name}</td>
+              <td className="px-4 py-2 border border-gray-300 text-right text-gray-800 text-sm">${participant.spent}</td>
+              <td className="px-4 py-2 border border-gray-300 text-right text-gray-800 text-sm">${participant.debt}</td>
+              <td className="px-4 py-2 border border-gray-300 text-right text-gray-800 text-sm">${participant.received}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className='flex w-full justify-center gap-4 mt-4'>
+        <Button text="Eliminar" onClick={flowReset} action='delete' />
+        <Button text="Editar" onClick={() => setIsModalNameOpen(true)} action='edit' />
+        <Button text="Descargar" onClick={() => handleDownload('Gastos')} action='download' />
+      </div>
+    </div>
+
+    {/* Tabla de Transacciones */}
+    {transactions.length > 0 && (
+      <div className="w-1/2 overflow-x-auto">
+        <table className="w-full table-auto border-collapse border border-gray-400" id="Transacciones">
+          <thead>
+            <tr className="bg-gray-400">
+              <th className="px-4 py-2 border border-gray-300 text-left text-sm font-medium text-gray-800">Deudor</th>
+              <th className="px-4 py-2 border border-gray-300 text-right text-sm font-medium text-gray-800">Monto</th>
+              <th className="px-4 py-2 border border-gray-300 text-right text-sm font-medium text-gray-800">Acreedor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.map((transaction, index) => (
+              <tr
+                key={index}
+                className={`${index % 2 === 0 ? 'bg-gray-500' : 'bg-gray-400'} hover:bg-gray-300`}
+              >
+                <td className="px-4 py-2 border border-gray-300 text-gray-800 text-sm">{transaction.debtor}</td>
+                <td className="px-4 py-2 border border-gray-300 text-right text-gray-800 text-sm">${transaction.amount}</td>
+                <td className="px-4 py-2 border border-gray-300 text-right text-gray-800 text-sm">{transaction.creditor}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className='flex w-full justify-center gap-4 mt-4'>
+          <Button text="Descargar" onClick={() => handleDownload('Transacciones')} action='download' />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      </div>
+    )}
+
+  </div>
+
+  {/* Botón para calcular divisiones */}
+  <div className="border-t border-gray-400 w-full my-6"></div>
+  <div className='flex w-full justify-center gap-4 mt-4'>
+    <Button text="Calcular divisiones" onClick={calculateTransactions} action='success' disabled={transactions.length > 0} />
+  </div>
+
+        </div>
+      )}
+      <Button text={state === 'success' ? 'Crear un nuevo flujo' : 'Crea un flujo de gastos'} onClick={() => setIsModalNameOpen(true)} action='add' />
+
+      {/* Modal: Nombre del flujo */}
+      <Modal isOpen={isModalNameOpen} setIsOpen={setIsModalNameOpen} backModal={handleBackModal} title='Crea un flujo de gastos'>
+        <label htmlFor="name">
+          <input
+            type="text"
+            name="name"
+            placeholder="Nombre del flujo de gastos"
+            value={name}
+            onChange={handleSetName}
+            className="mt-2 px-4 py-2 bg-gray-100 rounded-lg w-full text-gray-800"
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
+        </label>
+        <Button
+          onClick={handleNextToPeople}
+          disabled={isDisabledButton}
+          action='success'
+          text='Siguiente'
+        />
+      </Modal>
+
+      {/* Modal: Participantes */}
+      <Modal isOpen={isModalPeopleOpen} setIsOpen={setIsModalPeopleOpen} backModal={handleBackModalPeople} title={`Agregue a los participes del flujo ${name}`}>
+        <div className="mt-4">
+          {participants.map((participant, index) => (
+            <div key={index} className="flex items-center justify-between mb-2">
+              <span className="text-gray-600">{participant.name}</span>
+              <button
+                onClick={() => handleRemoveParticipant(index)}
+                className="text-red-500 hover:text-red-700"
+              >
+                Eliminar
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="mt-8 flex gap-2">
+          <input
+            type="text"
+            placeholder="Nombre del participante"
+            value={newParticipant}
+            onChange={(e) => setNewParticipant(e.target.value)}
+            className="px-4 py-2 bg-gray-100 rounded-lg flex-1 text-gray-800"
           />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
+          <button
+            onClick={handleAddParticipant}
+            className="px-4 py-2 rounded-lg text-white bg-blue-500 hover:bg-blue-600"
+          >
+            Agregar
+          </button>
+        </div>
+        <Button
+          onClick={handleNextToGastos}
+          disabled={participants.length === 0}
+          text='Siguiente'
+          action='success'
+        />
+      </Modal>
+
+      {/* Modal: Gastos */}
+      <Modal isOpen={isModalGastosOpen} setIsOpen={setIsModalGastosOpen} backModal={handleBackModalGastos} title={`Indique los gastos del flujo ${name}`}>
+        <div className='flex w-full justify-center gap-2 mt-4 flex-col'>
+          {participants.map((participant, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-5 w-full bg-gray-900 rounded-lg p-4 shadow-sm"
+            >
+              <span className="text-gray-80 font-medium flex-1">
+                {participant.name}
+              </span>
+              <input
+                type="number"
+                className="w-32 p-2 text-right text-blue-600 font-semibold bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500"
+                placeholder="0.00"
+                onChange={(e) => handleChangeSpent(index, e.target.value)}
+                value={participant.spent}
+              />
+            </div>
+          ))}
+          <Button
+            onClick={flowFinished}
+            action='success'
+            text='Finalizar' 
           />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </div>
+      </Modal>
+
     </div>
   );
-}
+};
+
+export default Page;
