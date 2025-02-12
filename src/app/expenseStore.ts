@@ -112,17 +112,13 @@ const useExpenseFlowStore = create<ExpenseFlowState>((set) => ({
     
     finishFlow: () => 
         set((state) => {
-            const updatedState = { 
-                ...state, 
-                state: 'success', // Actualizamos solo el campo 'state'
-            };
-    
             // Guardamos el estado actualizado en localStorage
-            localStorage.setItem('expenseFlowState', JSON.stringify(updatedState)); 
+            localStorage.setItem('expenseFlowState', JSON.stringify({ ...state, state: 'success' })); 
     
-            // Retornamos el estado actualizado
-            return updatedState;
+            // Retornamos solo las propiedades necesarias
+            return { state: 'success' };
         }),
+    
     
     flowReset: () => set({ name: '', totalSpent: 0, participants: [], state: 'loading', transactions: [] }),
 
